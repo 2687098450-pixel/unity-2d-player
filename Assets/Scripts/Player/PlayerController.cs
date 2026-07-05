@@ -52,6 +52,13 @@ public class PlayerController : MonoBehaviour
     static readonly int JAttackHash = Animator.StringToHash("JAttack");
     static readonly int BAttackHash = Animator.StringToHash("BAttack");
 
+    static readonly int SAttackStateHash = Animator.StringToHash("Player_S_Attack");
+    static readonly int MAttackStateHash = Animator.StringToHash("Player_M_Attack");
+    static readonly int BAttackStateHash = Animator.StringToHash("Player_B_Attack");
+    static readonly int JAttackStateHash = Animator.StringToHash("Player_J_Aattck");
+    static readonly int IdleStateHash = Animator.StringToHash("Player_Idle");
+    static readonly int JumpStateHash = Animator.StringToHash("Player_Jump");
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -106,7 +113,12 @@ public class PlayerController : MonoBehaviour
                 rb.velocity = new Vector2(rb.velocity.x, jumpForce);
                 jumpGraceTimer = jumpGraceTime;
                 if (animator != null)
-                    animator.SetTrigger(JumpHash);
+                {
+                    if (IsInGroundAttackState())
+                        CancelAttackTo(JumpStateHash);
+                    else
+                        animator.SetTrigger(JumpHash);
+                }
             }
             else if (allowDoubleJump && !hasDoubleJumped && !touchingGround)
             {
@@ -114,7 +126,12 @@ public class PlayerController : MonoBehaviour
                 rb.velocity = new Vector2(rb.velocity.x, jumpForce * 0.9f);
                 jumpGraceTimer = jumpGraceTime;
                 if (animator != null)
-                    animator.SetTrigger(JumpHash);
+                {
+                    if (IsInAirAttackState())
+                        CancelAttackTo(JumpStateHash);
+                    else
+                        animator.SetTrigger(JumpHash);
+                }
             }
         }
 
@@ -167,7 +184,13 @@ public class PlayerController : MonoBehaviour
 
         if (move != 0f)
         {
-            facingRight = move > 0f;
+            bool newFacingRight = move > 0f;
+            bool currentFacingRight = spriteRenderer != null ? spriteRenderer.flipX : facingRight;
+
+            if (newFacingRight != currentFacingRight && IsInAttackState())
+                CancelAttackTo(IdleStateHash);
+
+            facingRight = newFacingRight;
 
             if (spriteRenderer != null)
                 spriteRenderer.flipX = facingRight;
@@ -222,6 +245,44 @@ public class PlayerController : MonoBehaviour
 
         lastTapTime = Time.time;
         lastTapKey = key;
+    }
+
+    bool IsAnimatorInState(int stateHash)
+    {
+        if (animator == null)
+            return false;
+
+        if (animator.GetCurrentAnimatorStateInfo(0).shortNameHash == stateHash)
+            return true;
+
+        if (animator.IsInTransition(0)
+            && animator.GetNextAnimatorStateInfo(0).shortNameHash == stateHash)
+            return true;
+
+        return false;
+    }
+
+    bool IsInGroundAttackState()
+    {
+        return IsAnimatorInState(SAttackStateHash)
+            || IsAnimatorInState(MAttackStateHash)
+            || IsAnimatorInState(BAttackStateHash);
+    }
+
+    bool IsInAirAttackState() => IsAnimatorInState(JAttackStateHash);
+
+    bool IsInAttackState() => IsInGroundAttackState() || IsInAirAttackState();
+
+    void CancelAttackTo(int stateHash)
+    {
+        if (animator == null)
+            return;
+
+        animator.ResetTrigger(SAttackHash);
+        animator.ResetTrigger(MAttackHash);
+        animator.ResetTrigger(BAttackHash);
+        animator.ResetTrigger(JAttackHash);
+        animator.Play(stateHash, 0, 0f);
     }
 
     public void OnSAttackFinished()

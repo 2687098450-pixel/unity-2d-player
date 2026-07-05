@@ -91,15 +91,9 @@ public class PlayerAttackVFX : MonoBehaviour
         if (sprite == null || attackPoint == null)
             return;
 
-        bool facingRight = playerSprite != null && playerSprite.flipX;
-        Vector2 offset = localOffset;
-        float rotation = facingRight ? -extraRotation : extraRotation;
-
         var effect = new GameObject("AttackEffect");
         effect.transform.SetParent(attackPoint, false);
-        effect.transform.localPosition = offset;
-        effect.transform.localRotation = Quaternion.Euler(0f, 0f, rotation);
-        effect.transform.localScale = new Vector3(1f, scaleY, 1f);
+        effect.transform.localPosition = localOffset;
 
         var sr = effect.AddComponent<SpriteRenderer>();
         sr.sprite = sprite;
@@ -110,9 +104,41 @@ public class PlayerAttackVFX : MonoBehaviour
             sr.sortingOrder = playerSprite.sortingOrder + sortingOrderOffset;
         }
 
-        if (!facingRight)
-            sr.flipX = true;
+        var facing = effect.AddComponent<AttackEffectFacing>();
+        facing.Init(playerSprite, extraRotation, scaleY);
 
         Destroy(effect, effectDuration);
+    }
+}
+
+/// <summary>
+/// 挂在 AttackPoint 下的瞬时特效上，转身时同步 flip / 旋转。
+/// </summary>
+class AttackEffectFacing : MonoBehaviour
+{
+    SpriteRenderer playerSprite;
+    SpriteRenderer effectSprite;
+    float extraRotation;
+    float scaleY;
+
+    public void Init(SpriteRenderer player, float extraRotation, float scaleY)
+    {
+        playerSprite = player;
+        this.extraRotation = extraRotation;
+        this.scaleY = scaleY;
+        effectSprite = GetComponent<SpriteRenderer>();
+        ApplyFacing();
+    }
+
+    void LateUpdate() => ApplyFacing();
+
+    void ApplyFacing()
+    {
+        bool facingRight = playerSprite != null && playerSprite.flipX;
+        transform.localRotation = Quaternion.Euler(0f, 0f, facingRight ? -extraRotation : extraRotation);
+        transform.localScale = new Vector3(1f, scaleY, 1f);
+
+        if (effectSprite != null)
+            effectSprite.flipX = !facingRight;
     }
 }
